@@ -123,39 +123,44 @@ class JenkinsApi():
         :return:
         """
         job_names = self.get_job_details()
-        build_num = job_names.get_last_good_build()
-        job_number = job_names.get_last_buildnumber()
-        cons_status = build_num.get_console()
-        job_build_num = job_names.get_last_build()
-        job_build_url = self.get_job_url()
-
-        str_name = re.match("Started by (.*)", cons_status)
-        developers = str_name.group(1)
-        developer = developers.split(' ')[-1]
-
-        str_build_nodes = re.findall("Building remotely on (.+?) \(.*\)", cons_status)
-        build_nodes = str_build_nodes[0]
-
-        str_git_url = re.findall("Fetching upstream changes from (.*)", cons_status)
-        git_url = str_git_url[0]
-
-        str_commit_mess = re.findall("Commit message: (.*)", cons_status)
-        commit_mess = str_commit_mess[0]
-
-        str_commit_version = re.findall("Checking out Revision (.+?) \(.*\)", cons_status)
-        commit_version = str_commit_version[0]
-        job_status = build_num.get_status()
-        if job_status != "SUCCESS":
-            contents = cons_status.split('\n')[-20:]
-            consul_result = ''
-            for content in contents:
-                consul_result += content+ '\n'
+        build_num = job_names.get_last_build_or_none()
+        if build_num is None:
+            print("ci无编译记录，请重新触发")
+            exit(-1)
         else:
-            consul_result = ''
+            job_number = job_names.get_last_buildnumber()
+            cons_status = build_num.get_console()
+            job_build_num = job_names.get_last_build()
+            job_build_url = self.get_job_url()
 
-        jenkins_info = {'JOB_NAME': self.job_name, 'build_num': job_number, 'developers': developer,
-                         'job_status': job_status, 'build_node': build_nodes, 'git_url': git_url,
-                        'commit_info': commit_mess, 'commit_version': commit_version, 'info': consul_result,
-                        'job_build_url': job_build_url}
+            str_name = re.match("Started by (.*)", cons_status)
+            developers = str_name.group(1)
+            developer = developers.split(' ')[-1]
+            # developer = pypinyin.pinyin(developer_name, style=pypinyin.NORMAL)
 
-        return jenkins_info
+            str_build_nodes = re.findall("Building remotely on (.*)", cons_status)
+            build_nodes = " ".join(str_build_nodes).split(' ')[0]
+
+            str_git_url = re.findall("Fetching upstream changes from (.*)", cons_status)
+            git_url = str_git_url[0]
+
+            str_commit_mess = re.findall("Commit message: (.*)", cons_status)
+            commit_mess = str_commit_mess[0]
+
+            str_commit_version = re.findall("Checking out Revision (.+?) \(.*\)", cons_status)
+            commit_version = str_commit_version[0]
+            job_status = build_num.get_status()
+            if job_status != "SUCCESS":
+                contents = cons_status.split('\n')[-20:]
+                consul_result = ''
+                for content in contents:
+                    consul_result += content + '\n'
+            else:
+                consul_result = None
+
+            jenkins_info = {'JOB_NAME': self.job_name, 'build_num': job_number, 'developers': developer,
+                            'job_status': job_status, 'build_node': build_nodes, 'git_url': git_url,
+                            'commit_info': commit_mess, 'commit_version': commit_version, 'info': consul_result,
+                            'job_build_url': job_build_url}
+
+            return jenkins_info
